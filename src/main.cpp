@@ -34,4 +34,12 @@ void setup()
 
 void loop()
 {
+    if (softwareSerial.available() > 0) {
+        uint8_t dataBuffer[30];
+        uint8_t size = softwareSerial.readBytesUntil(13, dataBuffer, 30);
+        char chars[size+1];
+        memcpy(chars, dataBuffer, size);
+        chars[size] = '\0';
+        Serial.println(chars);
+    }
 }
