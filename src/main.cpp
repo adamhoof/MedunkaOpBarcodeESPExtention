@@ -1,11 +1,14 @@
 #include <Arduino.h>
 #include <WifiController.h>
 #include "credentials.h"
+#include <SoftwareSerial.h>
 
-WifiController wifiController{};
+WifiController wifiController {};
+SoftwareSerial softwareSerial {};
 
-void maintainWifiConnectionRTOS(void * parameters) {
-    for(;;) {
+void maintainWifiConnectionRTOS(void* parameters)
+{
+    for (;;) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
         wifiController.maintainConnection();
     }
@@ -14,6 +17,7 @@ void maintainWifiConnectionRTOS(void * parameters) {
 void setup()
 {
     Serial.begin(115200);
+    softwareSerial.begin(9600, SWSERIAL_8N1, 19, 23);
     wifiController.setSSID(wifiSSID).setPassword(wifiPassword);
     wifiController.setHostname(hostname);
 
@@ -25,7 +29,7 @@ void setup()
             1,
             nullptr,
             CONFIG_ARDUINO_RUNNING_CORE
-            );
+    );
 }
 
 void loop()
