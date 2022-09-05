@@ -78,17 +78,10 @@ void loop()
 
         Response response = getProductData(request_url);
 
-        if (response.code != 200) {
-            display.setCursor(0, 20);
-            display.setTextColor(ILI9341_RED);
-            display.printf("\nResponse code: %i", response.code);
-            return;
-        }
-
         StaticJsonDocument<350> productDataAsJson;
         DeserializationError error = deserializeJson(productDataAsJson, response.payload);
 
-        if (error) {
+        if (response.code != 200 || error) {
             display.setCursor(0, 20);
             display.setTextColor(ILI9341_GREEN);
             display.printf(
@@ -96,6 +89,7 @@ void loop()
             display.setTextColor(ILI9341_RED);
             display.printf("Admin -> Check if product is registered in db..."
                            "\nError message: %s", error.c_str());
+            display.printf("\nResponse code: %i", response.code);
             return;
         }
 
