@@ -83,7 +83,7 @@ void loop()
         memcpy(chars, barcodeBuffer, size);
         chars[size] = '\0';
 
-        char request_url [90];
+        char request_url [105];
         strcpy(request_url, requestURLWithoutBarcodeArgument);
         strcat(request_url, chars);
 
