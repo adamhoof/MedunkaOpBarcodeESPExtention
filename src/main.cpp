@@ -66,15 +66,15 @@ void setup()
 void loop()
 {
     if (softwareSerial.available() > 0) {
-        uint8_t barcodeBuffer[22];
-        uint8_t size = softwareSerial.readBytesUntil(13, barcodeBuffer, 22);
-        char chars[size + 1];
-        memcpy(chars, barcodeBuffer, size);
-        chars[size] = '\0';
+        uint8_t buffer[22];
+        uint8_t size = softwareSerial.readBytesUntil(13, buffer, 22);
+        char barcodeAsCharArray[size + 1];
+        memcpy(barcodeAsCharArray, buffer, size);
+        barcodeAsCharArray[size] = '\0';
 
         char request_url[105];
         strcpy(request_url, requestURLWithoutBarcodeArgument);
-        strcat(request_url, chars);
+        strcat(request_url, barcodeAsCharArray);
 
         Response response = getProductData(request_url);
 
