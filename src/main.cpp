@@ -84,9 +84,12 @@ void loop()
 
         if (error) {
             display.setCursor(0, 20);
+            display.setTextColor(ILI9341_GREEN);
+            display.printf(
+                    "\nCustomer -> Try to scan again...\n\n");
             display.setTextColor(ILI9341_RED);
-            display.print(F("Unpacking json failed, try to scan again or product info is not registered...: "));
-            display.println(error.f_str());
+            display.printf("Admin -> Check if product is registered in db..."
+                           "\nError message: %s", error.c_str());
             return;
         }
 
