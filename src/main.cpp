@@ -38,6 +38,25 @@ struct Response
     }
 };
 
+struct ProductData
+{
+    const char* name {};
+    float price {};
+    const char* stock {};
+    const char* unitOfMeasure {};
+    float unitOfMeasureKoef {};
+
+    ProductData(const char* name, float price, const char* stock, const char* unitOfMeasure,
+                const float unitOfMeasureKoef)
+    {
+        this->name = name;
+        this->price = price;
+        this->stock = stock;
+        this->unitOfMeasure = unitOfMeasure;
+        this->unitOfMeasureKoef = unitOfMeasureKoef;
+    }
+};
+
 Response getProductData(const char* requestUrl)
 {
     WiFiClient client;
@@ -78,43 +97,58 @@ void loop()
 {
     if (softwareSerial.available() > 0) {
         uint8_t barcodeBuffer[22];
-        uint8_t size = softwareSerial.readBytesUntil(13, barcodeBuffer, 30);
+        uint8_t size = softwareSerial.readBytesUntil(13, barcodeBuffer, 22);
         char chars[size + 1];
         memcpy(chars, barcodeBuffer, size);
         chars[size] = '\0';
 
-        char request_url [105];
+        char request_url[105];
         strcpy(request_url, requestURLWithoutBarcodeArgument);
         strcat(request_url, chars);
 
         Response response = getProductData(request_url);
 
-        Serial.print(response.payload);
+        StaticJsonDocument<350> productDataAsJson;
 
-        StaticJsonDocument<250> productData;
-
-        DeserializationError error = deserializeJson(productData, response.payload.c_str());
+        DeserializationError error = deserializeJson(productDataAsJson, response.payload.c_str());
 
         if (error) {
-            Serial.print(F("deserializeJson() failed: "));
-            Serial.println(error.f_str());
+            display.setCursor(0, 20);
+            display.setTextColor(ILI9341_RED);
+            display.print(F("Unpacking json failed, try to scan again or product info is not registered...: "));
+            display.println(error.f_str());
             return;
         }
 
-        const char* name = productData["Name"];
+        ProductData productData = ProductData(
+                productDataAsJson["Name"],
+                productDataAsJson["Price"],
+                productDataAsJson["Stock"],
+                productDataAsJson["UnitOfMeasure"],
+                productDataAsJson["UnitOfMeasureKoef"]);
 
-        Serial.println(name);
-
-        /*display.setTextColor(ILI9341_WHITE);
+        display.setTextColor(ILI9341_WHITE);
         display.fillScreen(ILI9341_BLACK);
         display.setTextSize(1);
         display.setCursor(0, 20);
-        display.println("Bylinna mast pro psy 50g");
+        display.println(productData.name);
         display.println();
         display.println();
 
         display.setTextColor(ILI9341_RED);
         display.setTextSize(2);
-        display.println("Cena: 50 kc");*/
+        display.printf("Cena: %.6g kc\n", productData.price);
+
+        display.setTextColor(ILI9341_WHITE);
+
+        if (strcmp(productData.unitOfMeasure, "") > 0) {
+            display.setTextSize(1);
+            display.printf("Cena za %s: %.6g kc\n\n",
+                           productData.unitOfMeasure,
+                           productData.price * productData.unitOfMeasureKoef);
+        }
+
+        display.setTextSize(1);
+        display.printf("Stock: %s", productData.stock);
     }
 }
