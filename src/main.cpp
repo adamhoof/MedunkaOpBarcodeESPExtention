@@ -110,11 +110,9 @@ void loop()
         display.fillScreen(ILI9341_BLACK);
         display.setTextSize(1);
         display.setCursor(0, 20);
-        display.println(productData.name);
-        display.println();
-        display.println();
+        display.printf("\n%s\n\n", productData.name);
 
-        display.setTextColor(ILI9341_RED);
+        display.setTextColor(ILI9341_GREEN);
         display.setTextSize(2);
         display.printf("Cena: %.6g kc\n", productData.price);
 
