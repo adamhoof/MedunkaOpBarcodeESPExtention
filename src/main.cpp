@@ -78,8 +78,14 @@ void loop()
 
         Response response = getProductData(request_url);
 
-        StaticJsonDocument<350> productDataAsJson;
+        if (response.code != 200) {
+            display.setCursor(0, 20);
+            display.setTextColor(ILI9341_RED);
+            display.printf("\nResponse code: %i", response.code);
+            return;
+        }
 
+        StaticJsonDocument<350> productDataAsJson;
         DeserializationError error = deserializeJson(productDataAsJson, response.payload.c_str());
 
         if (error) {
