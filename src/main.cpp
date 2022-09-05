@@ -3,7 +3,7 @@
 #include <Adafruit_ILI9341.h>
 #include <SoftwareSerial.h>
 #include <SPI.h>
-#include <Fonts/arial.h>
+#include <arial.h>
 #include "credentials.h"
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
@@ -26,7 +26,6 @@ void maintainWifiConnectionRTOS(void* parameters)
         wifiController.maintainConnection();
     }
 }
-
 
 Response getProductData(const char* requestUrl)
 {
