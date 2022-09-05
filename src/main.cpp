@@ -34,7 +34,7 @@ Response getProductData(const char* requestUrl)
 
     http.begin(client, requestUrl);
 
-    Response response = Response(http.GET(), http.getString());
+    Response response = Response(http.GET(), http.getString().c_str());
 
     http.end();
 
@@ -86,7 +86,7 @@ void loop()
         }
 
         StaticJsonDocument<350> productDataAsJson;
-        DeserializationError error = deserializeJson(productDataAsJson, response.payload.c_str());
+        DeserializationError error = deserializeJson(productDataAsJson, response.payload);
 
         if (error) {
             display.setCursor(0, 20);

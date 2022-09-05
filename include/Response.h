@@ -4,8 +4,8 @@
 
 struct Response
 {
-    String payload {};
+    char payload[200] {};
     int code {};
 
-    Response(int code, String payload);
+    Response(int code, const char*);
 };

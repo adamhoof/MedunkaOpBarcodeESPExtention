@@ -1,7 +1,7 @@
 #include "Response.h"
 
-Response::Response(int code, String payload)
+Response::Response(int code, const char* payload)
 {
     this->code = code;
-    this->payload = std::move(payload);
+    strcpy(this->payload, payload);
 }
