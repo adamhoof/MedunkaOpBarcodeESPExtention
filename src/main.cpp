@@ -88,6 +88,9 @@ void loop()
         strcpy(request_url, serverName);
         strcat(request_url, requestArguments);*/
 
+        char request_url [50];
+        strcat
+
         Response response = getProductData(request_url);
         Serial.println(response.payload);
 
