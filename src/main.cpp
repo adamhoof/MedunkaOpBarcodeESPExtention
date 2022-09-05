@@ -83,16 +83,13 @@ void loop()
         memcpy(chars, barcodeBuffer, size);
         chars[size] = '\0';
 
-        /*const char* requestArguments = "?barcode=8594052880977&include_diacritics=false";
-        char* request_url = new char[strlen(serverName) + strlen(requestArguments) + 1];
-        strcpy(request_url, serverName);
-        strcat(request_url, requestArguments);*/
-
-        char request_url [50];
-        strcat
+        char request_url [90];
+        strcpy(request_url, requestURLWithoutBarcodeArgument);
+        strcat(request_url, chars);
 
         Response response = getProductData(request_url);
-        Serial.println(response.payload);
+
+        Serial.print(response.payload);
 
         StaticJsonDocument<250> productData;
 
