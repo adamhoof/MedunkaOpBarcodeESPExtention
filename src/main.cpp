@@ -6,8 +6,9 @@
 #include <Fonts/arial.h>
 #include "credentials.h"
 #include <HTTPClient.h>
-#include <utility>
 #include <ArduinoJson.h>
+#include "ProductData.h"
+#include "Response.h"
 
 WifiController wifiController {};
 SoftwareSerial softwareSerial {};
@@ -26,36 +27,6 @@ void maintainWifiConnectionRTOS(void* parameters)
     }
 }
 
-struct Response
-{
-    String payload {};
-    int code {};
-
-    Response(int code, String payload)
-    {
-        this->code = code;
-        this->payload = std::move(payload);
-    }
-};
-
-struct ProductData
-{
-    const char* name {};
-    float price {};
-    const char* stock {};
-    const char* unitOfMeasure {};
-    float unitOfMeasureKoef {};
-
-    ProductData(const char* name, float price, const char* stock, const char* unitOfMeasure,
-                const float unitOfMeasureKoef)
-    {
-        this->name = name;
-        this->price = price;
-        this->stock = stock;
-        this->unitOfMeasure = unitOfMeasure;
-        this->unitOfMeasureKoef = unitOfMeasureKoef;
-    }
-};
 
 Response getProductData(const char* requestUrl)
 {
