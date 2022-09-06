@@ -45,7 +45,7 @@ void setup()
 {
     display.begin();
     display.setFont(&ariblk9pt8b);
-    display.setRotation(3);
+    display.setRotation(1);
     display.fillScreen(ILI9341_BLACK);
 
     Serial.begin(115200);
@@ -85,7 +85,7 @@ void loop()
             display.setCursor(0, 20);
             display.setTextColor(ILI9341_GREEN);
             display.printf(
-                    "\nCustomer -> Try to scan again...\n\n");
+                    "\nZkuste prosim znovu...\n\n");
             display.setTextColor(ILI9341_RED);
             display.printf("Admin -> Check if product is registered in db..."
                            "\nError message: %s", error.c_str());
