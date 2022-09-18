@@ -152,6 +152,5 @@ void loop()
             successfulPublish = mqttClient.publish(publishTopic, jsonBuffer, false);
             delay(100);
         }
-        delay(100);
     }
 }
