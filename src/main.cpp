@@ -150,7 +150,6 @@ void loop()
             mqttClient.connect(hostname);
             delay(100);
             successfulPublish = mqttClient.publish(publishTopic, jsonBuffer, false);
-            delay(100);
         }
     }
 }
