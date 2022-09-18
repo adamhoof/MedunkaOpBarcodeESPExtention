@@ -1,13 +1,14 @@
 #include <Arduino.h>
-#include <WifiController.h>
 #include <Adafruit_ILI9341.h>
-#include <SoftwareSerial.h>
 #include <SPI.h>
 #include <arial.h>
+#include <SoftwareSerial.h>
 #include "credentials.h"
+#include <WifiController.h>
+#include <OTAHandler.h>
+#include "PubSubClient.h"
 #include <ArduinoJson.h>
 #include "ProductData.h"
-#include "PubSubClient.h"
 
 WifiController wifiController = WifiController();
 SoftwareSerial softwareSerial {};
@@ -24,8 +25,18 @@ Adafruit_ILI9341 display = Adafruit_ILI9341(displayCSPin, displayDCPin, displayR
 void maintainWifiConnectionRTOS(void* parameters)
 {
     for (;;) {
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
         wifiController.maintainConnection();
+    }
+}
+
+void maintainOTAConnection(void* parameters)
+{
+    OTAHandler::setEvents();
+    OTAHandler::init();
+
+    for (;;) {
+        OTAHandler::maintainConnection();
     }
 }
 
@@ -92,6 +103,16 @@ void setup()
     xTaskCreatePinnedToCore(
             maintainWifiConnectionRTOS,
             "keepWifiAlive",
+            5000,
+            nullptr,
+            1,
+            nullptr,
+            CONFIG_ARDUINO_RUNNING_CORE
+    );
+
+    xTaskCreatePinnedToCore(
+            maintainOTAConnection,
+            "keepOTAAlive",
             5000,
             nullptr,
             1,
