@@ -116,13 +116,21 @@ void loop()
         char barcodeAsCharArray[size];
         memcpy(barcodeAsCharArray, buffer, size);
 
-        char jsonBuffer [200];
-        StaticJsonDocument <200> jsonDoc;
+        char jsonBuffer[200];
+        StaticJsonDocument<200> jsonDoc;
         jsonDoc["ClientTopic"] = hostname;
         jsonDoc["Barcode"] = barcodeAsCharArray;
         jsonDoc["IncludeDiacritics"] = false;
         serializeJson(jsonDoc, jsonBuffer);
 
-        mqttClient.publish(publishTopic, jsonBuffer, false);
+        bool successfulPublish = mqttClient.publish(publishTopic, jsonBuffer, false);
+        while (!successfulPublish) {
+            mqttClient.disconnect();
+            mqttClient.connect(hostname);
+            delay(100);
+            successfulPublish = mqttClient.publish(publishTopic, jsonBuffer, false);
+            delay(100);
+        }
+        delay(100);
     }
 }
