@@ -64,8 +64,20 @@ void messageHandler(char* topic, const byte* payload, unsigned int length)
             productDataAsJson["UnitOfMeasure"],
             productDataAsJson["UnitOfMeasureKoef"]);
 
-    display.setTextColor(ILI9341_WHITE);
+    if (strcmp(productData.name, "") == 0) {
+        display.fillScreen(ILI9341_BLACK);
+        display.setCursor(0, 20);
+        display.setTextSize(2);
+        display.setTextColor(ILI9341_GREEN);
+        display.printf("\nZkuste prosim\nznovu...\n");
+        display.setTextSize(1);
+        display.setTextColor(ILI9341_RED);
+        display.printf("\nAdmin -> check if product exists in db...\n");
+        return;
+    }
+
     display.fillScreen(ILI9341_BLACK);
+    display.setTextColor(ILI9341_WHITE);
     display.setTextSize(1);
     display.setCursor(0, 20);
     display.printf("\n%s\n\n", productData.name);
