@@ -160,6 +160,7 @@ void loop()
         while (!successfulPublish) {
             mqttClient.disconnect();
             mqttClient.connect(hostname);
+            mqttClient.subscribe(hostname);
             delay(100);
             successfulPublish = mqttClient.publish(publishTopic, jsonBuffer, false);
         }
