@@ -19,18 +19,11 @@ PubSubClient mqttClient = PubSubClient();
 const uint8_t displayCSPin = 32;
 const uint8_t displayDCPin = 26;
 const uint8_t displayRSTPin = 25;
-
 Adafruit_ILI9341 display = Adafruit_ILI9341(displayCSPin, displayDCPin, displayRSTPin);
 
-void maintainWifiConnectionRTOS(void* parameters)
-{
-    for (;;) {
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
-        wifiController.maintainConnection();
-    }
-}
+bool firmwareUpdateAwaiting = false;
 
-void maintainOTAConnection(void* parameters)
+void updateFirmware()
 {
     OTAHandler::setEvents();
     OTAHandler::init();
@@ -40,39 +33,66 @@ void maintainOTAConnection(void* parameters)
     }
 }
 
-void messageHandler(char* topic, const byte* payload, unsigned int length)
+void maintainMQTTConnection(void* parameters)
 {
-    Serial.println("Got em boi");
-    StaticJsonDocument<350> productDataAsJson;
-    DeserializationError error = deserializeJson(productDataAsJson, payload);
+    for (;;) {
+        //the loop() function of mqttClient returns status of mqtt connection as a result
+        if (mqttClient.loop()) {
+            delay(30);
+            continue;
+        }
+        //yes, when disconnected it does not have to be disconnected theoretically, but it sometimes sets the flag weirdly
+        mqttClient.disconnect();
+        mqttClient.connect(hostname);
+        mqttClient.subscribe(hostname);
+    }
+}
 
-    if (error) {
-        display.setCursor(0, 20);
-        display.setTextColor(ILI9341_GREEN);
-        display.printf(
-                "\nZkuste prosim znovu...\n\n");
-        display.setTextColor(ILI9341_RED);
-        display.printf("Admin -> Check if product is registered in db..."
-                       "\nError message: %s", error.c_str());
+char* mqttRequestBuffer = nullptr;
+
+void packMQTTRequestInfo(char* barcodeAsCharArray)
+{
+    StaticJsonDocument<200> jsonDoc;
+    jsonDoc["ClientTopic"] = hostname;
+    jsonDoc["Barcode"] = barcodeAsCharArray;
+    jsonDoc["IncludeDiacritics"] = false;
+    ArduinoJson6194_F1::serializeJson(jsonDoc, mqttRequestBuffer, 200);
+}
+
+DeserializationError unpackMQTTResponseInfo(const byte* response, ProductData* productData)
+{
+    StaticJsonDocument<350> productDataAsJson;
+    DeserializationError error = deserializeJson(productDataAsJson, response);
+
+    productData->name = productDataAsJson["Name"];
+    productData->price = productDataAsJson["Price"];
+    productData->stock = productDataAsJson["Stock"];
+    productData->unitOfMeasure = productDataAsJson["UnitOfMeasure"];
+    productData->unitOfMeasureKoef = productDataAsJson["UnitOfMeasureKoef"];
+    return error;
+}
+
+void printErrorMessage(const char* error)
+{
+    display.fillScreen(ILI9341_BLACK);
+    display.setCursor(0, 20);
+    display.setTextSize(2);
+    display.setTextColor(ILI9341_GREEN);
+    display.printf("\nZkuste prosim\nznovu...\n");
+    display.setTextSize(1);
+    display.setTextColor(ILI9341_RED);
+    display.printf("\nAdmin -> check if product exists in db...\n");
+
+    if (error == nullptr) {
         return;
     }
+    display.printf("Error message: %s", error);
+}
 
-    ProductData productData = ProductData(
-            productDataAsJson["Name"],
-            productDataAsJson["Price"],
-            productDataAsJson["Stock"],
-            productDataAsJson["UnitOfMeasure"],
-            productDataAsJson["UnitOfMeasureKoef"]);
-
-    if (strcmp(productData.name, "") == 0) {
-        display.fillScreen(ILI9341_BLACK);
-        display.setCursor(0, 20);
-        display.setTextSize(2);
-        display.setTextColor(ILI9341_GREEN);
-        display.printf("\nZkuste prosim\nznovu...\n");
-        display.setTextSize(1);
-        display.setTextColor(ILI9341_RED);
-        display.printf("\nAdmin -> check if product exists in db...\n");
+void printProductData(ProductData* productData)
+{
+    if (strcmp(productData->name, "") == 0) {
+        printErrorMessage("Name not found...");
         return;
     }
 
@@ -80,50 +100,77 @@ void messageHandler(char* topic, const byte* payload, unsigned int length)
     display.setTextColor(ILI9341_WHITE);
     display.setTextSize(1);
     display.setCursor(0, 20);
-    display.printf("\n%s\n\n", productData.name);
+    display.printf("\n%s\n\n", productData->name);
 
     display.setTextColor(ILI9341_GREEN);
     display.setTextSize(2);
-    display.printf("Cena: %.6g kc\n", productData.price);
+    display.printf("Cena: %.6g kc\n", productData->price);
 
     display.setTextColor(ILI9341_WHITE);
 
-    if (strcmp(productData.unitOfMeasure, "") > 0) {
+    if (strcmp(productData->unitOfMeasure, "") > 0) {
         display.setTextSize(1);
         display.printf("Cena za %s: %.6g kc\n\n",
-                       productData.unitOfMeasure,
-                       productData.price * productData.unitOfMeasureKoef);
+                       productData->unitOfMeasure,
+                       productData->price * productData->unitOfMeasureKoef);
     }
 
     display.setTextSize(1);
-    display.printf("Stock: %s", productData.stock);
+    display.printf("Stock: %s", productData->stock);
+}
+
+ProductData* productData = nullptr;
+bool* receivedMessage = nullptr;
+bool* finishedPrinting = nullptr;
+
+void messageHandler(char* topic, const byte* payload, unsigned int length)
+{
+    if (length == 1) {
+        firmwareUpdateAwaiting = true;
+        return;
+    }
+
+    while (!finishedPrinting){
+        delay(10);
+    }
+
+    DeserializationError error = unpackMQTTResponseInfo(payload, productData);
+
+    if (error) {
+        printErrorMessage(error.c_str());
+        return;
+    }
+    *receivedMessage = true;
+    *finishedPrinting = false;
 }
 
 void setup()
 {
+    mqttRequestBuffer = (char*) malloc(sizeof(char) * 200);
+    productData = (ProductData*) malloc(sizeof(ProductData));
+    receivedMessage = (bool*) malloc(sizeof(bool));
+    finishedPrinting = (bool*) malloc(sizeof(bool));
+    *receivedMessage = false;
+    *finishedPrinting = false;
+
     display.begin();
     display.setFont(&ariblk9pt8b);
     display.setRotation(1);
     display.fillScreen(ILI9341_BLACK);
 
-    Serial.begin(115200);
     softwareSerial.begin(9600, SWSERIAL_8N1, 13, 15);
 
     wifiController.setHostname(hostname).setSSID(wiFiSSID).setPassword(wiFiPassword);
     wifiController.connect();
 
-    xTaskCreatePinnedToCore(
-            maintainWifiConnectionRTOS,
-            "keepWifiAlive",
-            5000,
-            nullptr,
-            1,
-            nullptr,
-            CONFIG_ARDUINO_RUNNING_CORE
-    );
+    mqttClient.setServer(mqttServer, mqttPort);
+    mqttClient.setClient(wifiClient);
+    mqttClient.connect(hostname);
+    mqttClient.subscribe(hostname);
+    mqttClient.setCallback(messageHandler);
 
     xTaskCreatePinnedToCore(
-            maintainOTAConnection,
+            maintainMQTTConnection,
             "keepOTAAlive",
             5000,
             nullptr,
@@ -131,38 +178,43 @@ void setup()
             nullptr,
             CONFIG_ARDUINO_RUNNING_CORE
     );
-
-    mqttClient.setServer(mqttServer, mqttPort);
-    mqttClient.setClient(wifiClient);
-    mqttClient.connect(hostname);
-    mqttClient.subscribe(hostname);
-    mqttClient.setCallback(messageHandler);
 }
 
 void loop()
 {
-    mqttClient.loop();
+    if (receivedMessage) {
+        printProductData(productData);
+        *receivedMessage = false;
+        *finishedPrinting = true;
+    }
+    // enter into if statement when one of conditions is true, otherwise we do not care about the inside
+    if (!WiFi.isConnected() || firmwareUpdateAwaiting) {
+        if (!firmwareUpdateAwaiting) {
+            esp_restart();
+        }
+        //TODO send ip address
+        updateFirmware();
+    }
 
     if (softwareSerial.available() > 0) {
         uint8_t buffer[22];
         uint8_t size = softwareSerial.readBytesUntil(13, buffer, 22);
         char barcodeAsCharArray[size];
         memcpy(barcodeAsCharArray, buffer, size);
+        for (int i = 0; i < size; ++i) {
+            if (!isDigit(barcodeAsCharArray[i])) {
+                return;
+            }
+        }
 
-        char jsonBuffer[200];
-        StaticJsonDocument<200> jsonDoc;
-        jsonDoc["ClientTopic"] = hostname;
-        jsonDoc["Barcode"] = barcodeAsCharArray;
-        jsonDoc["IncludeDiacritics"] = false;
-        serializeJson(jsonDoc, jsonBuffer);
+        packMQTTRequestInfo(barcodeAsCharArray);
 
-        bool successfulPublish = mqttClient.publish(publishTopic, jsonBuffer, false);
+        bool successfulPublish = mqttClient.publish(publishTopic, mqttRequestBuffer, false);
         while (!successfulPublish) {
-            mqttClient.disconnect();
-            mqttClient.connect(hostname);
-            mqttClient.subscribe(hostname);
             delay(100);
-            successfulPublish = mqttClient.publish(publishTopic, jsonBuffer, false);
+            if (mqttClient.connected()) {
+                successfulPublish = mqttClient.publish(publishTopic, mqttRequestBuffer, false);
+            }
         }
     }
 }
