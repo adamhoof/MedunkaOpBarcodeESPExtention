@@ -1,7 +1,0 @@
-.pio
-cmake-build-debug
-cmake-build-pico32
-CMakeLists.txt
-CMakeListsPrivate.txt
-.idea
-include/credentials.h
