@@ -19,6 +19,7 @@ PubSubClient mqttClient = PubSubClient();
 const uint8_t displayCSPin = 32;
 const uint8_t displayDCPin = 26;
 const uint8_t displayRSTPin = 25;
+//23 MOSI SDI, 19 MISO SDO, 18 SCK
 Adafruit_ILI9341 display = Adafruit_ILI9341(displayCSPin, displayDCPin, displayRSTPin);
 
 bool firmwareUpdateAwaiting = false;
@@ -38,7 +39,7 @@ void maintainMQTTConnection(void* parameters)
     for (;;) {
         //the loop() function of mqttClient returns status of mqtt connection as a result
         if (mqttClient.loop()) {
-            delay(30);
+            vTaskDelay(200 / portTICK_PERIOD_MS);
             continue;
         }
         //yes, when disconnected it does not have to be disconnected theoretically, but it sometimes sets the flag weirdly
@@ -59,7 +60,7 @@ void packMQTTRequestInfo(char* barcodeAsCharArray)
     ArduinoJson6194_F1::serializeJson(jsonDoc, mqttRequestBuffer, 200);
 }
 
-DeserializationError unpackMQTTResponseInfo(const byte* response, ProductData* productData)
+DeserializationError unpackMQTTResponse(const byte* response, ProductData* productData)
 {
     StaticJsonDocument<350> productDataAsJson;
     DeserializationError error = deserializeJson(productDataAsJson, response);
@@ -130,11 +131,11 @@ void messageHandler(char* topic, const byte* payload, unsigned int length)
         return;
     }
 
-    while (!finishedPrinting){
+    while (!finishedPrinting) {
         delay(10);
     }
 
-    DeserializationError error = unpackMQTTResponseInfo(payload, productData);
+    DeserializationError error = unpackMQTTResponse(payload, productData);
 
     if (error) {
         printErrorMessage(error.c_str());
@@ -159,6 +160,7 @@ void setup()
     display.fillScreen(ILI9341_BLACK);
 
     softwareSerial.begin(9600, SWSERIAL_8N1, 13, 15);
+    Serial.begin(115200);
 
     wifiController.setHostname(hostname).setSSID(wiFiSSID).setPassword(wiFiPassword);
     wifiController.connect();
@@ -178,6 +180,7 @@ void setup()
             nullptr,
             CONFIG_ARDUINO_RUNNING_CORE
     );
+    Serial.println("Setup rdy");
 }
 
 void loop()
@@ -190,7 +193,7 @@ void loop()
     // enter into if statement when one of conditions is true, otherwise we do not care about the inside
     if (!WiFi.isConnected() || firmwareUpdateAwaiting) {
         if (!firmwareUpdateAwaiting) {
-            esp_restart();
+            wifiController.maintainConnection();
         }
         //TODO send ip address
         updateFirmware();
@@ -206,7 +209,7 @@ void loop()
                 return;
             }
         }
-
+        Serial.println(barcodeAsCharArray);
         packMQTTRequestInfo(barcodeAsCharArray);
 
         bool successfulPublish = mqttClient.publish(publishTopic, mqttRequestBuffer, false);
